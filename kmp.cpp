@@ -121,10 +121,13 @@ void walk_recursive(std::string const &dirname, std::vector<std::string> &ret)
     	}
     	for (dirent *de = readdir(dir); de != NULL; de = readdir(dir)) {
         	if (strcmp(".",de->d_name) == 0 || strcmp("..", de->d_name) == 0) continue;
-        	ret.push_back(dirname + "/" + de->d_name);
-        	if (de->d_type == DT_DIR) {
-        	    walk_recursive(dirname + "/" + de->d_name, ret);
-        	}
+        	//ret.push_back(dirname + "/" + de->d_name);
+        	if (de->d_type != DT_DIR)
+		{
+			ret.push_back(dirname + "/" + de->d_name);
+		}
+		else if (de->d_type == DT_DIR)
+			walk_recursive(dirname + "/" + de->d_name, ret);
    	 }
    	 closedir(dir);
 }
@@ -159,7 +162,7 @@ int main(int argc, char* argv[])
 	if (directory.empty()) 
 	{
 		only_current_dir = true;
-		directory = ".";
+		directory = get_directory();
 	}
 	//printf("%s\n%s\n%d\n%d\n", pattern.c_str(), directory.c_str(), only_current_dir, threads_num);
 	
