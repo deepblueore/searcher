@@ -98,7 +98,11 @@ class KMP
 			{
 				if (is_in_string(text.at(iter), 0, 0)) printf("%d: %s\n", iter, text.at(iter).c_str());
 			}
-			if (!is_almost_one) printf("No entries!\n");
+			if (!is_almost_one) 
+			{
+				printf("%s\n", directory.c_str());
+				printf("No entries!\n");
+			}
 		}
 
 		void check_file(std::string directory)
@@ -220,7 +224,11 @@ int main(int argc, char* argv[])
 		if (std::string(argv[iter]) == "-n") only_current_dir = true;
 		else if (argv[iter][0] == '-' && argv[iter][1] == 't') threads_num = (int)(argv[iter][2] - 48);
 		else if (pattern.empty()) pattern = std::string(argv[iter]);
-		else directory = std::string(argv[iter]);
+		else 
+		{
+			pattern += directory;
+			directory = std::string(argv[iter]);
+		}
 	}
 	if (directory.empty()) 
 	{
@@ -234,7 +242,7 @@ int main(int argc, char* argv[])
 	for (int i = 0; i < ret.size(); ++i) aut.check_file(ret.at(i).c_str());;
 	//for (int i = 0; i < ret.size(); ++i) printf("%s\n", ret.at(i).c_str());
 	std::vector<std::thread> search;
-	//for (int iter = 0; iter < threads_num: ++iter) search.push_back();
+	//for (int iter = 0; iter < threads_num: ++iter) search.push_back(std::thread(###));
 	return 0;
 }
 
