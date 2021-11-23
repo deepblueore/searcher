@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <cstring>
+#include <cstdlib>
 
 class KMP
 {
@@ -78,19 +79,62 @@ class KMP
 			return false;
 		}
 
-		void is_in_text(std::vector<std::string> text)
+		void is_in_text(std::vector<std::string> text, std::string directory)
 		{
 			bool is_almost_one = false;
-			for (int iter = 0; iter < text.size(); ++iter)
+			int iter = 0;
+			for (iter; iter < text.size(); ++iter)
 			{
 				if (is_in_string(text.at(iter), 0, 0))
 				{
 					is_almost_one = true;
+					printf("%s:\n", directory.c_str());
 					printf("%d: %s\n", iter, text.at(iter).c_str());
+					++iter;
+					break;
 				}
+			}
+			for (iter; iter < text.size(); ++iter)
+			{
+				if (is_in_string(text.at(iter), 0, 0)) printf("%d: %s\n", iter, text.at(iter).c_str());
 			}
 			if (!is_almost_one) printf("No entries!\n");
 		}
+
+		void check_file(std::string directory)
+		{
+	        	FILE* file = fopen(directory.c_str(), "r");
+        		if (!file)
+        		{
+                		fprintf(stderr, "can't open file: %s\n", directory.c_str());
+                		return;
+        		}
+        		std::vector<std::string> text;
+			std::string tmp;
+	        	//std::string buffer;
+        		fseek(file, 0, SEEK_END);
+        		long long int lSize = ftell(file);
+        		rewind(file);
+        		char* buffer = (char*)malloc(sizeof(char)*lSize);
+        		size_t result = fread(buffer, 1, lSize, file);
+			for (int i = 0; i < lSize; ++i)
+			{
+				if (buffer[i] != '\n') tmp.push_back(buffer[i]);
+				else
+				{
+					text.push_back(tmp);
+					tmp.clear();
+					continue;
+				}
+			}
+        		//puts(buffer);
+			//for (int i = 0; i < text.size(); ++i) printf("%s\n", text.at(i).c_str());
+        		is_in_text(text, directory);
+        		free(buffer);
+			text.clear();
+        		fclose(file);
+		}
+
 };
 
 std::string get_directory()
@@ -144,14 +188,33 @@ void walk_non_recursive(std::string const& dirname, std::vector<std::string>& re
          closedir(dir);
 }
 
+//void check_file(std::string directory)
+//{
+//	FILE* file = fopen(directory.c_str(), "r");
+//	if (!file)
+//	{
+//		fprintf(stderr, "can't open file: %s\n", directory.c_str());
+//		return;
+//	}
+//	std::vector<std::string> text;
+//	//std::string buffer;
+//	fseek(file, 0, SEEK_END);
+//	long long int lSize = ftell(file);
+//	rewind(file);
+//	char* buffer = (char*)malloc(sizeof(char)*lSize);
+//	size_t result = fread(buffer, 1, lSize, file);
+//	//puts(buffer);
+//	printf("%s\n", buffer);
+//	free(buffer);
+//	fclose(file);
+//}
+
 int main(int argc, char* argv[])
 {
 	bool only_current_dir = false;
 	int threads_num = 1;
 	std::string pattern, directory;
 	std::vector<std::string> ret;
-	pattern = "abcd";
-	KMP aut(pattern);
 	for (int iter = 1; iter < argc; ++iter)
 	{
 		if (std::string(argv[iter]) == "-n") only_current_dir = true;
@@ -165,10 +228,13 @@ int main(int argc, char* argv[])
 		directory = get_directory();
 	}
 	//printf("%s\n%s\n%d\n%d\n", pattern.c_str(), directory.c_str(), only_current_dir, threads_num);
-	
+	KMP aut(pattern);
 	const char* dirname = directory.c_str();
 	only_current_dir ? walk_non_recursive(dirname, ret) : walk_recursive(dirname, ret);
-	for (int i = 0; i < ret.size(); ++i) printf("%s\n", ret.at(i).c_str());
+	for (int i = 0; i < ret.size(); ++i) aut.check_file(ret.at(i).c_str());;
+	//for (int i = 0; i < ret.size(); ++i) printf("%s\n", ret.at(i).c_str());
+	std::vector<std::thread> search;
+	//for (int iter = 0; iter < threads_num: ++iter) search.push_back();
 	return 0;
 }
 
