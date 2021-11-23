@@ -1,7 +1,12 @@
 #include <stdio.h>
 #include <string>
 #include <vector>
-#include <iostream>
+#include <iostream> 
+#include <dirent.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <thread>
 
 class KMP
 {
@@ -86,7 +91,22 @@ class KMP
 
 };
 
-int main()
+
+int main(int argc, char* argv[])
 {
+	bool only_current_dir = false;
+	int threads_num = 1;
+	std::string pattern, directory;
+	for (int iter = 1; iter < argc; ++iter)
+	{
+		if (std::string(argv[iter]) == "-n") only_current_dir = true;
+		else if (argv[iter][0] == '-' && argv[iter][1] == 't') threads_num = (int)(argv[iter][2] - 48);
+		else if (pattern.empty()) pattern = std::string(argv[iter]);
+		else directory = std::string(argv[iter]);
+	}
+	if (directory.empty()) only_current_dir = true;
+	//printf("%s\n%s\n%d\n%d\n", pattern.c_str(), directory.c_str(), only_current_dir, threads_num);
+	
+	return 0;
 }
 
