@@ -7,6 +7,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <thread>
+#include <errno.h>
+#include <unistd.h>
+#include <cstring>
 
 class KMP
 {
@@ -88,15 +91,64 @@ class KMP
 			}
 			if (!is_almost_one) printf("No entries!\n");
 		}
-
 };
 
+std::string get_directory()
+{
+	size_t buf_size = 20;
+	std::string directory;
+	int iter = 0;
+	do
+	{
+		++iter;
+		directory.clear();
+		errno = 0;
+		char buffer[buf_size*iter];
+		getcwd(buffer, buf_size*iter);
+		for (int i = 0; i < buf_size*iter; ++i) directory.push_back(buffer[i]);
+	}while(errno == ERANGE);
+	return directory;
+}
+
+void walk_recursive(std::string const &dirname, std::vector<std::string> &ret)
+{
+	DIR *dir = opendir(dirname.c_str());
+	if (dir == nullptr) 
+	{
+		//ret.push_back(dirname);
+        	perror(dirname.c_str());
+        	return;
+    	}
+    	for (dirent *de = readdir(dir); de != NULL; de = readdir(dir)) {
+        	if (strcmp(".",de->d_name) == 0 || strcmp("..", de->d_name) == 0) continue;
+        	ret.push_back(dirname + "/" + de->d_name);
+        	if (de->d_type == DT_DIR) {
+        	    walk_recursive(dirname + "/" + de->d_name, ret);
+        	}
+   	 }
+   	 closedir(dir);
+}
+
+void walk_non_recursive(std::string const& dirname, std::vector<std::string>& ret)
+{
+        DIR *dir = opendir(dirname.c_str());
+        for (dirent *de = readdir(dir); de != NULL; de = readdir(dir)) {
+		if (de->d_type == DT_DIR) continue;
+                if (strcmp(".",de->d_name) == 0 || strcmp("..", de->d_name) == 0) continue;
+		const char* tmp = (dirname + "/" + de->d_name).c_str();
+                ret.push_back(dirname + "/" + de->d_name);
+         }
+         closedir(dir);
+}
 
 int main(int argc, char* argv[])
 {
 	bool only_current_dir = false;
 	int threads_num = 1;
 	std::string pattern, directory;
+	std::vector<std::string> ret;
+	pattern = "abcd";
+	KMP aut(pattern);
 	for (int iter = 1; iter < argc; ++iter)
 	{
 		if (std::string(argv[iter]) == "-n") only_current_dir = true;
@@ -104,9 +156,16 @@ int main(int argc, char* argv[])
 		else if (pattern.empty()) pattern = std::string(argv[iter]);
 		else directory = std::string(argv[iter]);
 	}
-	if (directory.empty()) only_current_dir = true;
+	if (directory.empty()) 
+	{
+		only_current_dir = true;
+		directory = ".";
+	}
 	//printf("%s\n%s\n%d\n%d\n", pattern.c_str(), directory.c_str(), only_current_dir, threads_num);
 	
+	const char* dirname = directory.c_str();
+	only_current_dir ? walk_non_recursive(dirname, ret) : walk_recursive(dirname, ret);
+	for (int i = 0; i < ret.size(); ++i) printf("%s\n", ret.at(i).c_str());
 	return 0;
 }
 
