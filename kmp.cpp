@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <cstring>
 #include <cstdlib>
+#include <algorithm>
 
 class KMP
 {
@@ -138,6 +139,44 @@ class KMP
 			text.clear();
         		fclose(file);
 		}
+		static void check_thread(std::vector<std::string> for_thread)
+		{
+			for (int iter = 0; iter < for_thread.size(); ++iter)
+			{
+				FILE* file = fopen(for_thread[iter].c_str(), "r");
+                        	if (!file)
+                        	{
+                               		fprintf(stderr, "can't open file: %s\n", for_thread[iter].c_str());
+                                	return;
+                        	}
+                        	std::vector<std::string> text;
+                        	std::string tmp;
+                        	//std::string buffer;
+                        	fseek(file, 0, SEEK_END);
+                        	long long int lSize = ftell(file);
+                        	rewind(file);
+                        	char* buffer = (char*)malloc(sizeof(char)*lSize);
+                        	size_t result = fread(buffer, 1, lSize, file);
+				for (int i = 0; i < lSize; ++i)
+                        	{
+                                	if (buffer[i] != '\n') tmp.push_back(buffer[i]);
+                                	else
+                                	{
+                                        	text.push_back(tmp);
+                                        	tmp.clear();
+                                        	continue;
+                                	}
+                        	}
+                        	//puts(buffer);
+                        	//for (int i = 0; i < text.size(); ++i) printf("%s\n", text.at(i).c_str());
+				std::string directory = for_thread[iter];
+                        	is_in_text(text, directory);
+                        	free(buffer);
+                        	text.clear();
+                        	fclose(file);
+
+			}
+		}
 
 };
 
@@ -226,7 +265,6 @@ int main(int argc, char* argv[])
 		else if (pattern.empty()) pattern = std::string(argv[iter]);
 		else 
 		{
-			pattern += directory;
 			directory = std::string(argv[iter]);
 		}
 	}
@@ -239,10 +277,27 @@ int main(int argc, char* argv[])
 	KMP aut(pattern);
 	const char* dirname = directory.c_str();
 	only_current_dir ? walk_non_recursive(dirname, ret) : walk_recursive(dirname, ret);
-	for (int i = 0; i < ret.size(); ++i) aut.check_file(ret.at(i).c_str());;
-	//for (int i = 0; i < ret.size(); ++i) printf("%s\n", ret.at(i).c_str());
+	std::sort(ret.begin(), ret.end(), std::less<std::string>());
+	//for (int i = 0; i < ret.size(); ++i) aut.check_file(ret.at(i).c_str());;
 	std::vector<std::thread> search;
-	//for (int iter = 0; iter < threads_num: ++iter) search.push_back(std::thread(###));
+	std::vector<std::vector<std::string>> for_threads(threads_num);
+	int jter = 0;
+	for (int iter = 0; iter < ret.size(); ++iter)
+	{
+		if (jter == threads_num) jter = 0;
+		for_threads[jter].push_back(ret.at(iter));
+		++jter;
+	}
+	//std::thread thr(aut.check_thread(for_threads[0]));
+	//thr.join();
+	for (int iter = 0; iter < threads_num; ++iter)
+	{
+		search.push_back(std::thread(KMP::check_thread, std::ref(aut)), std::ref(for_threads[iter]));
+	}
+	for (int iter = 0; iter < threads_num; ++iter)
+	{
+		search[iter].join();
+	}
 	return 0;
 }
 
