@@ -13,6 +13,9 @@
 #include <cstdlib>
 #include <algorithm>
 
+#define ALPHA_START 32
+#define ALPHA_END 125
+
 class KMP
 {
 	private:
@@ -22,7 +25,6 @@ class KMP
 		int length;
 	public:
 		std::vector<std::string> paths;
-	        off_t files_size;
 	        pthread_mutex_t mutex;
 		
 		int recursive_link_detector(int number, char symbol)
@@ -68,6 +70,7 @@ class KMP
 			while (pos_in_element < element.size())
 			{
 				if (pos_in_kmp == length) return true;
+				if (element.at(pos_in_element) < ALPHA_START || element.at(pos_in_element) > ALPHA_END) break;
 				if (element.at(pos_in_element) == transitions.at(pos_in_kmp))
 				{
 					++pos_in_element;
@@ -78,7 +81,7 @@ class KMP
 				else 
 				{
 					++pos_in_element;
-					return is_in_string(element, pos_in_element, pos_in_kmp);
+					return is_in_string(element, pos_in_element, links.at(pos_in_kmp));
 				}
 			}
 			return false;
@@ -93,17 +96,26 @@ class KMP
 				if (is_in_string(text.at(iter), 0, 0))
 				{
 					is_almost_one = true;
+					pthread_mutex_lock(&mutex);
 					printf("%s:\n", directory.c_str());
 					printf("%d: %s\n", iter+1, text.at(iter).c_str());
 					++iter;
+					pthread_mutex_unlock(&mutex);
 					break;
 				}
 			}
 			for (iter; iter < text.size(); ++iter)
-			{
+			{	
+				pthread_mutex_lock(&mutex);
 				if (is_in_string(text.at(iter), 0, 0)) printf("%d: %s\n", iter+1, text.at(iter).c_str());
+				pthread_mutex_unlock(&mutex);
 			}
-			if (is_almost_one) printf("\n");
+			pthread_mutex_lock(&mutex);
+			if (is_almost_one)
+			{
+				printf("\n");
+			}
+			pthread_mutex_unlock(&mutex);
 			//if (!is_almost_one) printf("%s: No entries!\n", directory.c_str());
 		}
 
@@ -112,7 +124,9 @@ class KMP
 	        	FILE* file = fopen(directory.c_str(), "r");
         		if (!file)
         		{
+				pthread_mutex_lock(&mutex);
                 		fprintf(stderr, "can't open file: %s\n", directory.c_str());
+				pthread_mutex_unlock(&mutex);
                 		return;
         		}
         		std::vector<std::string> text;
@@ -141,13 +155,18 @@ class KMP
         		fclose(file);
 		}
 
-		void* check_thread(std::vector<std::string> thread)
+		void check_thread()
 		{
-			for (int iter = 0; iter < thread.size(); ++iter) check_file(thread.at(iter));
-			return NULL;
+			for (int iter = 0; iter < paths.size(); ++iter) check_file(paths.at(iter));
 		}
 };
 
+void* file_check(void* arg)
+{
+	KMP* args = (KMP*)arg;
+	args->check_thread();
+	return NULL;
+}
 std::string get_directory()
 {
 	size_t buf_size = 20;
@@ -213,7 +232,8 @@ int main(int argc, char* argv[])
 	if (directory.empty()) directory = get_directory();
 	//printf("%s\n%s\n%d\n%d\n", pattern.c_str(), directory.c_str(), only_current_dir, threads_num);
 
-	//KMP aut(pattern);
+	//KMP aut;
+	//aut.get_KMP(pattern);
 	const char* dirname = directory.c_str();
 	only_current_dir ? walk_non_recursive(dirname, ret) : walk_recursive(dirname, ret);
 	printf("\n");
@@ -232,6 +252,7 @@ int main(int argc, char* argv[])
 		{
 			if (iter >= ret.size()) break;
 			args[jter].paths.push_back(ret.at(iter));
+			++iter;
 		}
 	}
 	pthread_t *threads = (pthread_t *) malloc(threads_num * sizeof(pthread_t));
@@ -240,13 +261,14 @@ int main(int argc, char* argv[])
 	for(int iter = 0; iter < threads_num; ++iter)
 	{
         	args[iter].mutex = mutex_main;
-        	pthread_create(threads+iter, NULL, KMP::check_thread, args[iter]);
+        	pthread_create(threads+iter, NULL, file_check, &args[iter]);
     	}
 	for(int iter = 0; iter < threads_num; ++iter)
 	{
         	pthread_join(threads[iter], NULL);
     	}
-	
+    	pthread_mutex_destroy(&mutex_main);
+    	free(threads);
 	//for (int i = 0; i < ret.size(); ++i) printf("%s\n", ret[i].c_str());
 	//for (int i = 0; i < ret.size(); ++i) aut.check_file(ret.at(i).c_str());
 	//std::vector<std::thread> search;
