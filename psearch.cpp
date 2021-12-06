@@ -80,8 +80,13 @@ class KMP
 				}
 				else 
 				{
-					++pos_in_element;
-					return is_in_string(element, pos_in_element, links.at(pos_in_kmp));
+					if (pos_in_kmp == 0)
+					{
+						++pos_in_element;
+						continue;
+					}
+					pos_in_kmp = links.at(pos_in_kmp);
+					continue;
 				}
 			}
 			return false;
@@ -274,5 +279,4 @@ int main(int argc, char* argv[])
 	//std::vector<std::thread> search;
 	return 0;
 }
-
 
