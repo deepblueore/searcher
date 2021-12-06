@@ -13,21 +13,22 @@
 #include <cstdlib>
 #include <algorithm>
 
+//начало и конец алфавита
 #define ALPHA_START 32
 #define ALPHA_END 125
 
 class KMP
 {
 	private:
-		std::vector<std::string> prefixes = {""};
-		std::vector<char> transitions;
-		std::vector<int> links = {0};
+		std::vector<std::string> prefixes = {""}; //состояния КМП-автомата
+		std::vector<char> transitions; //переходы между состояниями
+		std::vector<int> links = {0}; //ссылки-исключения
 		int length;
 	public:
-		std::vector<std::string> paths;
+		std::vector<std::string> paths; //директории, в которых ищется вхождение шаблона
 	        pthread_mutex_t mutex;
 		
-		int recursive_link_detector(int number, char symbol)
+		int recursive_link_detector(int number, char symbol) //вычисление суффиксных ссылок (ссылок-исключений)
 		{
 			if (links[number] == 0 && (transitions[0] != symbol || number == 0)) return 0;
 			if (number > 0 && transitions[links[number]] == symbol) return links[number] + 1;
@@ -37,7 +38,13 @@ class KMP
 		{
 			length = 0;
 		}
-		void get_KMP(std::string pattern)
+                ~KMP()
+                {
+                        prefixes.clear();
+                        transitions.clear();
+                        links.clear();
+                }
+		void get_KMP(std::string pattern) //построение автомата по шаблону
 		{
 			length = pattern.size();
 			std::string tmp;
@@ -50,35 +57,20 @@ class KMP
 				links.push_back(recursive_link_detector(iter, symbol));
 			}
 		}
-		~KMP()
-		{
-			prefixes.clear();
-			transitions.clear();
-			links.clear();
-		}
-		void print_KMP()
-                {
-                        for (int i = 0; i < prefixes.size(); ++i) printf("%s ", prefixes.at(i).c_str());
-                        printf("\n");
-                        for (int i  = 0; i < transitions.size(); ++i) printf("%c ", transitions.at(i));
-                        printf("\n");
-                        for (int i = 0; i < links.size(); ++i) printf("%d ", links.at(i));
-                        printf("\n");
-                }
-		bool is_in_string(std::string element, int pos_in_element, int pos_in_kmp)
+		bool is_in_string(std::string element, int pos_in_element, int pos_in_kmp) //поиск вхождения в строку
 		{
 			while (pos_in_element < element.size())
 			{
 				if (pos_in_kmp == length) return true;
 				if (element.at(pos_in_element) < ALPHA_START || element.at(pos_in_element) > ALPHA_END) break;
-				if (element.at(pos_in_element) == transitions.at(pos_in_kmp))
+				if (element.at(pos_in_element) == transitions.at(pos_in_kmp)) //если определен переход по символу
 				{
 					++pos_in_element;
 					++pos_in_kmp;
 					if (pos_in_kmp == length) return true;
 					continue;
 				}
-				else 
+				else //если переход не определен
 				{
 					if (pos_in_kmp == 0)
 					{
@@ -92,13 +84,13 @@ class KMP
 			return false;
 		}
 
-		void is_in_text(std::vector<std::string> text, std::string directory)
+		void is_in_text(std::vector<std::string> text, std::string directory) //поиск вхождений шаблона в текст
 		{
 			bool is_almost_one = false;
 			int iter = 0;
 			for (iter; iter < text.size(); ++iter)
 			{
-				if (is_in_string(text.at(iter), 0, 0))
+				if (is_in_string(text.at(iter), 0, 0)) //поиск первого вхождения, чтобы вывести имя директории
 				{
 					is_almost_one = true;
 					pthread_mutex_lock(&mutex);
@@ -109,7 +101,7 @@ class KMP
 					break;
 				}
 			}
-			for (iter; iter < text.size(); ++iter)
+			for (iter; iter < text.size(); ++iter) //поиск оставшихся вхождений
 			{	
 				pthread_mutex_lock(&mutex);
 				if (is_in_string(text.at(iter), 0, 0)) printf("%d: %s\n", iter+1, text.at(iter).c_str());
@@ -121,13 +113,12 @@ class KMP
 				printf("\n");
 			}
 			pthread_mutex_unlock(&mutex);
-			//if (!is_almost_one) printf("%s: No entries!\n", directory.c_str());
 		}
 
-		void check_file(std::string directory)
+		void check_file(std::string directory) //заполнение текста строками из директории
 		{
 	        	FILE* file = fopen(directory.c_str(), "r");
-        		if (!file)
+        		if (!file) //обработка ошибок
         		{
 				pthread_mutex_lock(&mutex);
                 		fprintf(stderr, "can't open file: %s\n", directory.c_str());
@@ -136,7 +127,6 @@ class KMP
         		}
         		std::vector<std::string> text;
 			std::string tmp;
-	        	//std::string buffer;
         		fseek(file, 0, SEEK_END);
         		long long int lSize = ftell(file);
         		rewind(file);
@@ -152,15 +142,13 @@ class KMP
 					continue;
 				}
 			}
-        		//puts(buffer);
-			//for (int i = 0; i < text.size(); ++i) printf("%s\n", text.at(i).c_str());
         		is_in_text(text, directory);
         		free(buffer);
 			text.clear();
         		fclose(file);
 		}
 
-		void check_thread()
+		void check_thread() //нужно для file_check()
 		{
 			for (int iter = 0; iter < paths.size(); ++iter) check_file(paths.at(iter));
 		}
@@ -172,7 +160,7 @@ void* file_check(void* arg)
 	args->check_thread();
 	return NULL;
 }
-std::string get_directory()
+std::string get_directory() //вычисление текущей директории
 {
 	size_t buf_size = 20;
 	std::string directory;
@@ -188,28 +176,23 @@ std::string get_directory()
 	}while(errno == ERANGE);
 	return directory;
 }
-void walk_recursive(std::string const &dirname, std::vector<std::string> &ret)
+void walk_recursive(std::string const &dirname, std::vector<std::string> &ret) //рекурсивный обход директории (если во вводе есть -n)
 {
 	DIR *dir = opendir(dirname.c_str());
-	if (dir == nullptr) 
+	if (dir == nullptr) //обработка ошибок 
 	{
-		//ret.push_back(dirname);
         	perror(dirname.c_str());
         	return;
     	}
     	for (dirent *de = readdir(dir); de != NULL; de = readdir(dir)) {
         	if (strcmp(".",de->d_name) == 0 || strcmp("..", de->d_name) == 0) continue;
-        	//ret.push_back(dirname + "/" + de->d_name);
-        	if (de->d_type != DT_DIR)
-		{
-			ret.push_back(dirname + "/" + de->d_name);
-		}
+        	if (de->d_type != DT_DIR) ret.push_back(dirname + "/" + de->d_name); //если указатель на файл, добавляем директорию в вектор
 		else if (de->d_type == DT_DIR)
 			walk_recursive(dirname + "/" + de->d_name, ret);
    	 }
    	 closedir(dir);
 }
-void walk_non_recursive(std::string const& dirname, std::vector<std::string>& ret)
+void walk_non_recursive(std::string const& dirname, std::vector<std::string>& ret) //нерекурсивный обход директории (если во вводе нет -n)
 {
         DIR *dir = opendir(dirname.c_str());
         for (dirent *de = readdir(dir); de != NULL; de = readdir(dir)) {
@@ -225,9 +208,9 @@ int main(int argc, char* argv[])
 {
 	bool only_current_dir = false;
 	int threads_num = 1;
-	std::string pattern, directory;
-	std::vector<std::string> ret;
-	for (int iter = 1; iter < argc; ++iter)
+	std::string pattern, directory; //шаблон, текущая директория
+	std::vector<std::string> ret; //вектор директорий, в которых осуществляется поиск вхождений
+	for (int iter = 1; iter < argc; ++iter) //парсинг ввода
 	{
 		if (std::string(argv[iter]) == "-n") only_current_dir = true;
 		else if (argv[iter][0] == '-' && argv[iter][1] == 't') threads_num = (int)(argv[iter][2] - 48);
@@ -235,14 +218,16 @@ int main(int argc, char* argv[])
 		else directory = std::string(argv[iter]);
 	}
 	if (directory.empty()) directory = get_directory();
-	//printf("%s\n%s\n%d\n%d\n", pattern.c_str(), directory.c_str(), only_current_dir, threads_num);
-
-	//KMP aut;
-	//aut.get_KMP(pattern);
 	const char* dirname = directory.c_str();
 	only_current_dir ? walk_non_recursive(dirname, ret) : walk_recursive(dirname, ret);
 	printf("\n");
 	std::sort(ret.begin(), ret.end(), [](std::string &s1, std::string &s2){return s1.length() > s2.length();});
+
+	/*
+	 * директории распределяются по объектам класса KMP,
+	 * для каждого объекта создается поток
+	 */
+
 	std::vector<KMP> args;
 	args.resize(threads_num);
 	for (int iter = 0; iter < threads_num; ++iter)
@@ -274,9 +259,6 @@ int main(int argc, char* argv[])
     	}
     	pthread_mutex_destroy(&mutex_main);
     	free(threads);
-	//for (int i = 0; i < ret.size(); ++i) printf("%s\n", ret[i].c_str());
-	//for (int i = 0; i < ret.size(); ++i) aut.check_file(ret.at(i).c_str());
-	//std::vector<std::thread> search;
 	return 0;
 }
 
