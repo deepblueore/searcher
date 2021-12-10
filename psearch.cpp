@@ -127,12 +127,11 @@ class KMP
         		}
 
 			char* buffer = NULL;
-        		size_t buf_size = 0;
-        		int string_count = 1;
-        		ssize_t string_size;
-			string_size = getline(&buffer, &buf_size, file);
-			int flag1 = 0;
-			int flag2 = 0;
+        		size_t buf_size = 0; 
+        		int string_count = 1; //номер обрабатываемой строки
+			ssize_t string_size = getline(&buffer, &buf_size, file);
+			int flag1 = 0; //для учета вхождения
+			int flag2 = 0; //чтобы отслеживать первое вхождение
 			while(string_size >= 0)
 			{
 				std::string text;
