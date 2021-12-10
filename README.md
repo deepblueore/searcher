@@ -20,9 +20,9 @@ Output: `real	0m0,361s user	0m0,298s sys	0m0,035s`
 Input: `time ./psearch int /usr/include -t4 -n`  
 Output: `real	0m0,266s user	0m0,300s sys	0m0,091s`  
 
-На сравнительно большом наборе данных:
+На сравнительно большом наборе данных:  
 Input: `time ./psearch pop /usr/include -t1`  
-Output: `real	0m7,221s user	0m6,997s sys	0m0,169s`
+Output: `real	0m7,221s user	0m6,997s sys	0m0,169s`  
 
 Input: `time ./psearch int /usr/include -t4`  
 Output: `real	0m2,411s user	0m7,062s sys	0m0,173s`
