@@ -125,32 +125,45 @@ class KMP
 				pthread_mutex_unlock(&mutex);
                 		return;
         		}
-        		std::vector<std::string> text;
-			std::string tmp;
-        		fseek(file, 0, SEEK_END);
-        		long long int lSize = ftell(file);
-        		rewind(file);
-        		char* buffer = (char*)malloc(sizeof(char)*lSize);
-        		size_t result = fread(buffer, 1, lSize, file);
-			for (int i = 0; i < lSize; ++i)
+
+			char* buffer = NULL;
+        		size_t buf_size = 0;
+        		int string_count = 1;
+        		ssize_t string_size;
+			string_size = getline(&buffer, &buf_size, file);
+			int flag1 = 0;
+			int flag2 = 0;
+			while(string_size >= 0)
 			{
-				if (buffer[i] != '\n') tmp.push_back(buffer[i]);
-				else
+				std::string text;
+				for (int iter = 0; iter < buf_size; ++iter) text.push_back(buffer[iter]);
+            			flag1 = is_in_string(text, 0, 0);
+            			if (flag1 && !flag2)
 				{
-					text.push_back(tmp);
-					tmp.clear();
-					continue;
+                			pthread_mutex_lock(&mutex);
+					printf("%s\n", directory.c_str());
+                			printf("%d: %s", string_count, buffer);
+					flag2 = 1;
+                			pthread_mutex_unlock(&mutex);
+            			}
+				else if (flag1 && flag2)
+				{
+					pthread_mutex_lock(&mutex);
+					printf("%d: %s", string_count, buffer);
+					pthread_mutex_unlock(&mutex);
 				}
-			}
-        		is_in_text(text, directory);
+            			++string_count;
+            			string_size = getline(&buffer, &buf_size, file);
+        		}
+			if (flag2) printf("\n");
         		free(buffer);
-			text.clear();
+        		buffer = NULL;
         		fclose(file);
 		}
 
 		void check_thread() //нужно для file_check()
 		{
-			for (int iter = 0; iter < paths.size(); ++iter) check_file(paths.at(iter));
+			for (long long int iter = 0; iter < paths.size(); ++iter) check_file(paths.at(iter));
 		}
 };
 
@@ -230,13 +243,13 @@ int main(int argc, char* argv[])
 
 	std::vector<KMP> args;
 	args.resize(threads_num);
-	for (int iter = 0; iter < threads_num; ++iter)
+	for (long long int iter = 0; iter < threads_num; ++iter)
 	{
 		if (iter >= ret.size()) break;
 		args[iter].get_KMP(pattern);
 		args[iter].paths.push_back(ret.at(iter));
 	}
-	for (int iter = threads_num; iter < ret.size();)
+	for (long long int iter = threads_num; iter < ret.size();)
 	{
 		for (int jter = 0; jter < threads_num; ++jter)
 		{
@@ -248,12 +261,12 @@ int main(int argc, char* argv[])
 	pthread_t *threads = (pthread_t *) malloc(threads_num * sizeof(pthread_t));
     	pthread_mutex_t mutex_main;
 	pthread_mutex_init(&mutex_main, NULL);
-	for(int iter = 0; iter < threads_num; ++iter)
+	for(long long int iter = 0; iter < threads_num; ++iter)
 	{
         	args[iter].mutex = mutex_main;
         	pthread_create(threads+iter, NULL, file_check, &args[iter]);
     	}
-	for(int iter = 0; iter < threads_num; ++iter)
+	for(long long int iter = 0; iter < threads_num; ++iter)
 	{
         	pthread_join(threads[iter], NULL);
     	}
